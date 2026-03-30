@@ -5,15 +5,18 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  dockerHubUser: YOUR_DOCKERHUB_USERNAME
-  frontendImage: react-frontend
-  backendImage: springboot-backend
+- group: dockerhub-secrets
+
+- name: dockerHubUser
+  value: bsrivathsa
+
+- name: frontendImage
+  value: react-frontend
+
+- name: backendImage
+  value: springboot-backend
 
 stages:
-
-# =========================
-# BUILD DOCKER IMAGES
-# =========================
 
 - stage: Build
   displayName: Build Docker Images
@@ -32,10 +35,6 @@ stages:
         docker build -t $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
       displayName: Build Backend Image
 
-
-# =========================
-# PUSH IMAGES TO DOCKERHUB
-# =========================
 
 - stage: Push
   displayName: Push Images to DockerHub
@@ -60,10 +59,6 @@ stages:
       displayName: Push Backend Image
 
 
-# =========================
-# DEPLOY TO AKS
-# =========================
-
 - stage: Deploy
   displayName: Deploy to AKS
   dependsOn: Push
@@ -71,10 +66,17 @@ stages:
   - job: DeployToAKS
     displayName: Update Kubernetes Deployments
     steps:
+    - task: Kubernetes@1
+      displayName: Login to AKS
+      inputs:
+        connectionType: 'Azure Resource Manager'
+        azureSubscriptionEndpoint: 'aks-service-connection'
+        azureResourceGroup: 'demo-cluster_group'
+        kubernetesCluster: 'demo-cluster'
 
     - script: |
         kubectl set image deployment/frontend-deployment \
-        frontend=$(dockerHubUser)/$(frontendImage):$(Build.BuildId)
+        frontend=$(dockerHubUser)/$(frontendImage):$(Build.BuildId) 
 
         kubectl set image deployment/backend-deployment \
         backend=$(dockerHubUser)/$(backendImage):$(Build.BuildId)

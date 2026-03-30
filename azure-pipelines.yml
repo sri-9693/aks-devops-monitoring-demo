@@ -1,0 +1,81 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dockerHubUser: YOUR_DOCKERHUB_USERNAME
+  frontendImage: react-frontend
+  backendImage: springboot-backend
+
+stages:
+
+# =========================
+# BUILD DOCKER IMAGES
+# =========================
+
+- stage: Build
+  displayName: Build Docker Images
+  jobs:
+  - job: BuildImages
+    displayName: Build Frontend and Backend
+    steps:
+
+    - checkout: self
+
+    - script: |
+        docker build -t $(dockerHubUser)/$(frontendImage):$(Build.BuildId) ./full-stack/react-js-frontend
+      displayName: Build Frontend Image
+
+    - script: |
+        docker build -t $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
+      displayName: Build Backend Image
+
+
+# =========================
+# PUSH IMAGES TO DOCKERHUB
+# =========================
+
+- stage: Push
+  displayName: Push Images to DockerHub
+  dependsOn: Build
+  jobs:
+  - job: PushImages
+    displayName: Push Docker Images
+    steps:
+
+    - checkout: self
+
+    - script: |
+        echo "$(DOCKER_PASSWORD)" | docker login -u "$(dockerHubUser)" --password-stdin
+      displayName: DockerHub Login
+
+    - script: |
+        docker push $(dockerHubUser)/$(frontendImage):$(Build.BuildId)
+      displayName: Push Frontend Image
+
+    - script: |
+        docker push $(dockerHubUser)/$(backendImage):$(Build.BuildId)
+      displayName: Push Backend Image
+
+
+# =========================
+# DEPLOY TO AKS
+# =========================
+
+- stage: Deploy
+  displayName: Deploy to AKS
+  dependsOn: Push
+  jobs:
+  - job: DeployToAKS
+    displayName: Update Kubernetes Deployments
+    steps:
+
+    - script: |
+        kubectl set image deployment/frontend-deployment \
+        frontend=$(dockerHubUser)/$(frontendImage):$(Build.BuildId)
+
+        kubectl set image deployment/backend-deployment \
+        backend=$(dockerHubUser)/$(backendImage):$(Build.BuildId)
+      displayName: Update AKS Deployments

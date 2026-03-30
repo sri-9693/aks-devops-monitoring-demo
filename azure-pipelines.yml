@@ -81,3 +81,10 @@ stages:
         kubectl set image deployment/backend-deployment \
         backend=$(dockerHubUser)/$(backendImage):$(Build.BuildId)
       displayName: Update AKS Deployments
+
+    - script: |
+        echo "Waiting for rollout to complete..."
+
+        kubectl rollout status deployment/frontend-deployment
+        kubectl rollout status deployment/backend-deployment
+      displayName: Verify Deployment Rollout

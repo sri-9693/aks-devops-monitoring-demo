@@ -36,12 +36,12 @@ stages:
 
     - script: |
         echo "Building frontend image..."
-        docker build -t --no-cache $(dockerHubUser)/$(frontendImage):$(Build.BuildId) ./full-stack/react-js-frontend
+        docker build -t $(dockerHubUser)/$(frontendImage):$(Build.BuildId) ./full-stack/react-js-frontend
       displayName: Build Frontend Image
 
     - script: |
         echo "Building backend image..."
-        docker build -t --no-cache $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
+        docker build -t $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
       displayName: Build Backend Image
 
     - script: |

@@ -1,2 +1,2 @@
-const BASE_URL = "/api/developer";
+const BASE_URL = "/developer";
 export default BASE_URL;

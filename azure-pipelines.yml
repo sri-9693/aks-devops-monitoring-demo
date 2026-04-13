@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  name: Default
 
 variables:
 - group: dockerhub-secrets
@@ -16,75 +16,73 @@ variables:
 - name: backendImage
   value: springboot-backend
 
+
 stages:
 
-- stage: Build
-  displayName: Build Docker Images
+# BUILD AND PUSH
+
+- stage: BuildAndPush
+  displayName: Build and Push Docker Images
   jobs:
-  - job: BuildImages
-    displayName: Build Frontend and Backend
+  - job: BuildPushImages
     steps:
 
     - checkout: self
 
     - script: |
-        docker build -t $(dockerHubUser)/$(frontendImage):$(Build.BuildId) ./full-stack/react-js-frontend
-      displayName: Build Frontend Image
-
-    - script: |
-        docker build -t $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
-      displayName: Build Backend Image
-
-
-- stage: Push
-  displayName: Push Images to DockerHub
-  dependsOn: Build
-  jobs:
-  - job: PushImages
-    displayName: Push Docker Images
-    steps:
-
-    - checkout: self
-
-    - script: |
+        echo "Logging into DockerHub..."
         echo "$(DOCKER_PASSWORD)" | docker login -u "$(dockerHubUser)" --password-stdin
       displayName: DockerHub Login
 
     - script: |
+        echo "Building frontend image..."
+        docker build -t $(dockerHubUser)/$(frontendImage):$(Build.BuildId) ./full-stack/react-js-frontend
+      displayName: Build Frontend Image
+
+    - script: |
+        echo "Building backend image..."
+        docker build -t $(dockerHubUser)/$(backendImage):$(Build.BuildId) ./full-stack/spring-boot-backend
+      displayName: Build Backend Image
+
+    - script: |
+        echo "Pushing frontend image..."
         docker push $(dockerHubUser)/$(frontendImage):$(Build.BuildId)
       displayName: Push Frontend Image
 
     - script: |
+        echo "Pushing backend image..."
         docker push $(dockerHubUser)/$(backendImage):$(Build.BuildId)
       displayName: Push Backend Image
 
+# DEPLOY
 
 - stage: Deploy
   displayName: Deploy to AKS
-  dependsOn: Push
+  dependsOn: BuildAndPush
   jobs:
   - job: DeployToAKS
-    displayName: Update Kubernetes Deployments
     steps:
+
     - task: Kubernetes@1
       displayName: Login to AKS
       inputs:
         connectionType: 'Azure Resource Manager'
         azureSubscriptionEndpoint: 'aks-service-connection'
-        azureResourceGroup: 'demo-cluster_group'
-        kubernetesCluster: 'demo-cluster'
+        azureResourceGroup: 'demo-group'
+        kubernetesCluster: 'new-aks-demo'
 
     - script: |
+        echo "Updating frontend deployment..."
         kubectl set image deployment/frontend-deployment \
-        frontend=$(dockerHubUser)/$(frontendImage):$(Build.BuildId) 
+        frontend=$(dockerHubUser)/$(frontendImage):$(Build.BuildId)
 
+        echo "Updating backend deployment..."
         kubectl set image deployment/backend-deployment \
         backend=$(dockerHubUser)/$(backendImage):$(Build.BuildId)
       displayName: Update AKS Deployments
 
     - script: |
         echo "Waiting for rollout to complete..."
-
         kubectl rollout status deployment/frontend-deployment
         kubectl rollout status deployment/backend-deployment
       displayName: Verify Deployment Rollout

@@ -2,6 +2,8 @@ param location string = 'centralus'
 
 param adminUsername string = 'azureuser'
 param adminPassword string = 'Password@123'
+param aksName string = 'my-aks-cluster'
+param dnsPrefix string = 'myaksdns'
 
 // Public IP (Standard SKU)
 resource publicIP 'Microsoft.Network/publicIPAddresses@2023-04-01' = {
@@ -34,6 +36,14 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
   parent: vnet
   properties: {
     addressPrefix: '10.0.1.0/24'
+  }
+}
+
+resource aksSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
+  name: 'aks-subnet'
+  parent: vnet
+  properties: {
+    addressPrefix: '10.0.2.0/24'
   }
 }
 
@@ -111,6 +121,36 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = {
           id: nic.id
         }
       ]
+    }
+  }
+}
+
+resource aks 'Microsoft.ContainerService/managedClusters@2023-05-01' = {
+  name: aksName
+  location: location
+
+  identity: {
+    type: 'SystemAssigned'
+  }
+
+  properties: {
+    dnsPrefix: dnsPrefix
+
+    agentPoolProfiles: [
+      {
+        name: 'nodepool1'
+        count: 1
+        vmSize: 'Standard_D2s_v3'
+        osType: 'Linux'
+        type: 'VirtualMachineScaleSets'
+        mode: 'System'
+
+        vnetSubnetID: aksSubnet.id
+      }
+    ]
+
+    networkProfile: {
+      networkPlugin: 'azure'
     }
   }
 }

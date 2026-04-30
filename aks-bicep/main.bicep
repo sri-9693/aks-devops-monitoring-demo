@@ -151,6 +151,8 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-05-01' = {
 
     networkProfile: {
       networkPlugin: 'azure'
+      serviceCidr: '10.100.0.0/16'
+      dnsServiceIP: '10.100.0.10'
     }
   }
 }
